@@ -8,15 +8,9 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.textbox}>
         <Text style={styles.title}>
-          Добре Дошли!
+            Вашият глас беше преброен!
         </Text>
-        <Text style={styles.text}>
-          Това е прототип на система за електронно гласуване чрез мобилно приложение.
-        </Text>
-      </View>
-      <Button label="Гласувай" action={() => router.push({pathname: "/register"})} icon="checkbox-marked-outline" />
     </View>
   );
 }
@@ -29,15 +23,11 @@ const styles = StyleSheet.create({
     // justifyContent: 'center',
     padding: 19,
   },
-  textbox: {
-    height: '50%',
-    width: '80%',
-    justifyContent: 'center',
-  },
-  text: {
-    color: '#fff',
-    fontSize: 20,
-  },
+//   textbox: {
+//     height: '50%',
+//     width: '80%',
+//     justifyContent: 'center',
+//   },
   title: {
     fontSize: 30,
     color:  '#ffd33d',
