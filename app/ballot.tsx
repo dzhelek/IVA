@@ -58,13 +58,11 @@ export default function Ballot() {
   return (
     <View style={styles.container}>
       { loading ? <ActivityIndicator size='large' color='#ffd33d'/> :
-      <View style={styles.textbox}>
+      <View>
         <Text style={styles.title}>Изберете партия:</Text>
-        {/* <ScrollView> */}
-            { list.map((item) =>
-                <VoteButton key={item.id} id={item.id} label={item.name} selected={vote == item.id} setChoice={setVote}/>
-            )}
-        {/* </ScrollView> */}
+        { list.map((item) =>
+            <VoteButton key={item.id} id={item.id} label={item.name} selected={vote == item.id} setChoice={setVote}/>
+        )}
       </View>
       }
       <Button icon="vote" label="Гласувай" action={() => {
@@ -83,9 +81,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#25292e',
     alignItems: 'center',
     padding: 19,
-  },
-  textbox: {
-    justifyContent: 'center',
   },
   text: {
     color: '#fff',

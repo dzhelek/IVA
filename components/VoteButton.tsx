@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import Button from '@/components/Button';
@@ -19,9 +20,18 @@ export default function VoteButton({ label, selected, setChoice, id}: Props) {
 
   return (
     // <Button label="hi" icon='ab-testing' action={() => undefined} />
-    <Button label={id + '. ' + label} icon={icon} active={selected} action={() => {
+    <Button style={styles.button} label={id + '. ' + label} icon={icon} active={selected} action={() => {
         setIcon('checkbox-marked');
         setChoice(id);
     }} />
   )
 }
+
+const styles = StyleSheet.create({
+    button: {
+      textAlign: 'left',
+      // alignContent: 'flex-start',
+      // justifyContent: 'flex-start',
+      width: '100%',
+    },
+})

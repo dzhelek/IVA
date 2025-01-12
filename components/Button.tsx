@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { StyleSheet, View, Text, Pressable, StyleSheetProperties } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Props = {
@@ -6,16 +6,17 @@ type Props = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   action: () => void;
   active?: boolean;
+  style?: any;
 };
 
-export default function Button({ label, action, icon, active = true }: Props) {
-  const style = active ? styles.border : {};
+export default function Button({ label, action, icon, active = true, style }: Props) {
+  const borderStyle = active ? styles.border : {};
 
   return (
-    <View style={{...styles.buttonContainer, ...style}}>
+    <View style={{...styles.buttonContainer, ...borderStyle}}>
       <Pressable style={styles.button} onPress={action}>
         <MaterialCommunityIcons name={icon} size={30} style={styles.buttonIcon} />
-        <Text style={styles.buttonLabel}>{label}</Text>
+        <Text style={{...styles.buttonLabel, ...style}}>{label}</Text>
       </Pressable>
     </View >
   );
@@ -53,6 +54,7 @@ const styles = StyleSheet.create({
     alignContent: 'center',
     justifyContent: 'center',
     textAlignVertical: 'center',
+    maxWidth: 250,
   },
   buttonIcon: {
     paddingRight: 8,

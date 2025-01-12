@@ -29,7 +29,7 @@ export default function Register() {
   };
 
   const processEID = async () => {
-    forge.pki.rsa.generateKeyPair({bits: 2048}, async (err: Error, keys: forge.pki.rsa.KeyPair) => {
+    forge.pki.rsa.generateKeyPair({bits: 1024}, async (err: Error, keys: forge.pki.rsa.KeyPair) => {
       if (err) {
         console.error('Error generating key pair');
         return;
