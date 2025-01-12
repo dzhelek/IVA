@@ -1,7 +1,7 @@
-import { Text, View, StyleSheet, Alert } from "react-native";
+import { Text, View, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 
 import Button from "@/components/Button"
-import { useRouter } from "expo-router";
 
 export default function Index() {
   const router = useRouter();
@@ -26,7 +26,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#25292e',
     alignItems: 'center',
-    // justifyContent: 'center',
     padding: 19,
   },
   textbox: {

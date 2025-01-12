@@ -1,21 +1,30 @@
 import { useEffect, useState } from "react";
 import { Text, View, StyleSheet, ActivityIndicator } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
-
 import { useRouter } from "expo-router";
 
 import axios from "axios";
+import forge from 'node-forge';
 
 import Button from "@/components/Button";
 import VoteButton from '@/components/VoteButton';
 import { ELECTION_SERVER } from "@/constants/Default";
+import { useCertificate } from "@/app/_layout";
 
 export default function Ballot() {
   const [loading, setLoading] = useState<boolean>(true);
   const [list, setList] = useState<Array<{id: number, name: string}>>([]);
   const [vote, setVote] = useState<number>(0);
 
+  const {certificate} = useCertificate();
+
   const router = useRouter();
+
+  useEffect(() => {
+    fetchData();
+  }, [])
+
+  const cert = certificate.cert;
+  const privkey = certificate.privkey;
 
   const fetchData = async () => {
     try {
@@ -27,9 +36,24 @@ export default function Ballot() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    fetchData();
-  }, [])
+  const processVote = async () => {
+    const md = forge.md.sha512.create();
+    md.update(vote.toString(), 'utf8');
+
+    let code = 400;
+
+    try {
+      const response = await axios.post(ELECTION_SERVER + '/vote', {
+        vote: vote.toString(), cert: forge.pki.certificateToPem(cert), signature: forge.util.encode64(privkey.sign(md))
+      })
+      code = response.status;
+    }
+    catch(error) {
+      console.error('Error submitting vote: ', error);
+    }
+
+    router.replace({pathname: "/vote", params: {code: code}});
+  }
 
   return (
     <View style={styles.container}>
@@ -43,7 +67,12 @@ export default function Ballot() {
         {/* </ScrollView> */}
       </View>
       }
-      <Button label="Гласувай" action={() => router.replace({pathname: "/vote"})} icon="vote" />
+      <Button icon="vote" label="Гласувай" action={() => {
+        if (vote) {
+          setLoading(true);
+          processVote();
+        }
+      }} />
     </View>
   );
 }
@@ -53,12 +82,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#25292e',
     alignItems: 'center',
-    // justifyContent: 'center',
     padding: 19,
   },
   textbox: {
-    // height: '50%',
-    // width: '80%',
     justifyContent: 'center',
   },
   text: {

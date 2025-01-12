@@ -1,11 +1,8 @@
 import { StyleSheet, View, Text, Pressable } from 'react-native';
-
-// import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Props = {
   label: string;
-  // href: Href;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   action: () => void;
   active?: boolean;
@@ -15,7 +12,6 @@ export default function Button({ label, action, icon, active = true }: Props) {
   const style = active ? styles.border : {};
 
   return (
-    // <View style={ active ? styles.buttonContainer : styles.buttonContainerInactive}>
     <View style={{...styles.buttonContainer, ...style}}>
       <Pressable style={styles.button} onPress={action}>
         <MaterialCommunityIcons name={icon} size={30} style={styles.buttonIcon} />

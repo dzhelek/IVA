@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Text, View, StyleSheet, TextInput, Alert, ActivityIndicator} from "react-native";
 import { useRouter } from "expo-router";
 
-import axios from 'axios'
+import axios from 'axios';
+import forge from 'node-forge';
 
-import Button from "@/components/Button"
+import Button from "@/components/Button";
 import { ELECTION_SERVER } from "@/constants/Default";
+import { useCertificate } from "@/app/_layout";
 
 export default function Register() {
   const [ssn, setSsn] = useState('');
@@ -13,7 +15,9 @@ export default function Register() {
 
   const router = useRouter();
 
-  const validateSsn = (ssn: string) => {
+  const {setCertificate} = useCertificate();
+
+  const validateSsn = () => {
     if (ssn.search(/^\d{10}$/) != 0) {
       return false;
     }
@@ -25,14 +29,31 @@ export default function Register() {
   };
 
   const processEID = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.post(ELECTION_SERVER + "/log-in");
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-    setLoading(false);
-    router.replace({pathname: '/ballot'});
+    forge.pki.rsa.generateKeyPair({bits: 2048}, async (err: Error, keys: forge.pki.rsa.KeyPair) => {
+      if (err) {
+        console.error('Error generating key pair');
+        return;
+      }
+
+      const csr = forge.pki.createCertificationRequest();
+      csr.publicKey = keys.publicKey;
+      csr.setSubject([
+        {name: 'commonName', value: 'IVA'},
+        {name: 'countryName', value: 'BG'},
+      ])
+      csr.addAttribute({name: 'subjectKeyIdentifier', value: ssn});
+      csr.sign(keys.privateKey);
+
+      try {
+        const response = await axios.post(ELECTION_SERVER + "/log-in", {csr: forge.pki.certificationRequestToPem(csr)});
+        setCertificate({privkey: keys.privateKey, cert: forge.pki.certificateFromPem(response.data.cert)});
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        return;
+      }
+
+      router.replace({pathname: '/ballot'});
+    });
   };
 
   return (
@@ -52,7 +73,12 @@ export default function Register() {
         maxLength={10}
       />
       <Button label="Влез с Evrotrust eID" icon="login" action={() =>{
-        validateSsn(ssn) ? processEID() : Alert.alert('Грешно ЕГН', 'Моля въведете правилно своето ЕГН.', [{text: 'OK'}]);
+        setLoading(true);
+        if (validateSsn()) processEID();
+        else {
+          setLoading(false);
+          Alert.alert('Грешно ЕГН', 'Моля въведете правилно своето ЕГН.', [{text: 'OK'}]);
+        }
       }}/>
       { loading && <ActivityIndicator size='large' color='#ffd33d'/>}
     </View>
