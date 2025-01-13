@@ -1,0 +1,278 @@
+[
+    {
+        "id": "38f81ed323452795",
+        "type": "tab",
+        "label": "Election Server",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "760776710adf462e",
+        "type": "tab",
+        "label": "Evrotrust eID",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "4c4ab86e80cf6535",
+        "type": "http in",
+        "z": "38f81ed323452795",
+        "name": "",
+        "url": "/get-parties",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 200,
+        "y": 120,
+        "wires": [
+            [
+                "f1824ccc2f693cc8"
+            ]
+        ]
+    },
+    {
+        "id": "6e2e766bcacf10fd",
+        "type": "http response",
+        "z": "38f81ed323452795",
+        "name": "http response",
+        "statusCode": "",
+        "headers": {},
+        "x": 660,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "f1824ccc2f693cc8",
+        "type": "function",
+        "z": "38f81ed323452795",
+        "name": "select from parties",
+        "func": "await flow.cl.login(\n    { user: flow.IMMUDB_USER, password: flow.IMMUDB_PWD }\n);\n\nmsg.payload = await flow.cl.SQLQuery(\n    { sql: 'SELECT * FROM parties;' }\n);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\nconst ImmudbClient = immu.default;\n\nconst IMMUDB_HOST = '127.0.0.1'\nconst IMMUDB_PORT = '3322'\nflow.IMMUDB_USER = 'immudb'\nflow.IMMUDB_PWD = 'immudb'\n\nflow.cl = new ImmudbClient(\n    { host: IMMUDB_HOST, port: IMMUDB_PORT }\n);\n\nflow.set('cl', flow.cl);",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "immu",
+                "module": "immudb-node"
+            }
+        ],
+        "x": 430,
+        "y": 120,
+        "wires": [
+            [
+                "6e2e766bcacf10fd"
+            ]
+        ]
+    },
+    {
+        "id": "a05a453d75eb3577",
+        "type": "http in",
+        "z": "38f81ed323452795",
+        "name": "",
+        "url": "/vote",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 200,
+        "wires": [
+            [
+                "7ee4d5ce303f7b80"
+            ]
+        ]
+    },
+    {
+        "id": "44cfaf6e83f1c092",
+        "type": "debug",
+        "z": "38f81ed323452795",
+        "name": "vote request",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "7ee4d5ce303f7b80",
+        "type": "function",
+        "z": "38f81ed323452795",
+        "name": "process vote",
+        "func": "flow.cl = flow.get('cl');\n\nconst cert = forge.pki.certificateFromPem(msg.payload.cert);\n\nif (!flow.caCertificate.verify(cert)) {\n    node.warn('invalid certificate');\n    msg.statusCode = 400;\n    return msg;\n}\n\nconst md = forge.md.sha512.create();\nmd.update(msg.payload.vote, 'utf8');\n\nif (!cert.publicKey.verify(\n    md.digest().bytes(), forge.util.decode64(msg.payload.signature)\n)) {\n    node.warn('invalid signature');\n    msg.statusCode = 400;\n    return msg;\n}\n\nconst ssn = cert.extensions.find((x) => x.name == 'subjectKeyIdentifier').value.substring(1,11);\n\n// node.warn(cert.extensions);\n\nconst voters = await flow.cl.SQLQuery(\n    { sql: `SELECT COUNT(*) AS voted FROM voters WHERE id = '${ssn}';` }\n);\n\nif (voters[0].voted) {\n    node.warn('already voted');\n    msg.statusCode = 204;\n    return msg;\n}\n\nnode.warn(msg.payload.vote);\nnode.warn(ssn);\n\nawait flow.cl.SQLExec({sql: `\nBEGIN TRANSACTION;\n    INSERT INTO voters (id) VALUES ('${ssn}');\n    INSERT INTO votes(id, party_id) VALUES (RANDOM_UUID(), ${msg.payload.vote});\nCOMMIT;\n`});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\nflow.caCertificate = forge.pki.certificateFromPem(`\n-----BEGIN CERTIFICATE-----\nMIIC4DCCAcigAwIBAgIAMA0GCSqGSIb3DQEBBQUAMDQxDDAKBgNVBAMTA2VJRDEX\nMBUGA1UEChMOVGVzdCBFdnJvdHJ1c3QxCzAJBgNVBAYTAkJHMB4XDTI1MDExMjEw\nMzMyMVoXDTI2MDExMjEwMzMyMVowNDEMMAoGA1UEAxMDZUlEMRcwFQYDVQQKEw5U\nZXN0IEV2cm90cnVzdDELMAkGA1UEBhMCQkcwggEiMA0GCSqGSIb3DQEBAQUAA4IB\nDwAwggEKAoIBAQC6TzVJ4M+dnr601Jj4BZTCrU1P0wmitEl0MxMzvUBgskc3Qq9u\nxSUpJ2+j5voA/TG+PO3xh266WNGDhememkkMKCApjLy1tCKGvQu+EXS01pt/depJ\nECJDuyvPwaBqRqGO+lLm4PWPd6kqTba6ERv1m342vM2HQznlOgWxmRp97QtlojAD\ng2/ejtQIAwFM74F+a+kFxzA7abTHUY35xFedf1arOqsRPB0BVTvD6BGJLjE7wvJ/\nkR8Wi7ZXLkQKsrtgrclcxofRtVYy9FLwCp1s8j24GQy3+EemamnPAiIWHDm3D85c\nxUz7JmEPip6bWQ4+d6jpG+UyjImYXw7DrKcfAgMBAAEwDQYJKoZIhvcNAQEFBQAD\nggEBAAo0SB0ljxtgzNg9AKyIv2IN0zbN9NA5s7UkNYUXjpazXd6WfK9ot9xy8XMP\nhWZf1XdMoSg7yHRwOjlNioYd4K7fik2Lzb21a6OADKjVtlRIbpDOqtGXFeAu7yjm\n8/hh6LMEy4d72Xcdl/XG7VlZGBi5P2jpglm7JbFCjYXSsRf0kBwIy++cU1mEzNT+\nD93Hjl8pezVoVSEGczq4tZEYF8gwJOewIQyt47y3cGnk1c4NRWHmtPpTcaEdX471\n/YKKoWsR1CT2DFkluZI/wIBrEWX/RkvxujfYfZfvyBA6ZB6V2mXN9gCfzmxuHUDU\nVXlAEVhn/C9F/oGshha1GIsuoR0=\n-----END CERTIFICATE-----\n`);",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "forge",
+                "module": "node-forge"
+            }
+        ],
+        "x": 430,
+        "y": 200,
+        "wires": [
+            [
+                "44cfaf6e83f1c092",
+                "edc31b03d49bbb95"
+            ]
+        ]
+    },
+    {
+        "id": "edc31b03d49bbb95",
+        "type": "http response",
+        "z": "38f81ed323452795",
+        "name": "http response",
+        "statusCode": "",
+        "headers": {},
+        "x": 660,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "e5f627ded9644a1c",
+        "type": "inject",
+        "z": "38f81ed323452795",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 460,
+        "wires": [
+            [
+                "437869908ad69482"
+            ]
+        ]
+    },
+    {
+        "id": "437869908ad69482",
+        "type": "function",
+        "z": "38f81ed323452795",
+        "name": "function 1",
+        "func": "flow.cl = flow.get('cl');\n\nawait flow.cl.login(\n    { user: 'immudb', password: 'immudb' }\n);\n\nawait flow.cl.SQLExec({sql: `\nBEGIN TRANSACTION;\n     INSERT INTO votes(id, party_id) VALUES (RANDOM_UUID(), 1); \n    INSERT INTO voters (id) VALUES ('1234'); \nCOMMIT;\n`});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "378083114e054e81",
+        "type": "http in",
+        "z": "760776710adf462e",
+        "name": "",
+        "url": "/log-in",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 230,
+        "y": 140,
+        "wires": [
+            [
+                "38f453f036ea51e4",
+                "10dd8cd4c9a89042"
+            ]
+        ]
+    },
+    {
+        "id": "ca3693da1328b52c",
+        "type": "http response",
+        "z": "760776710adf462e",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 710,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "38f453f036ea51e4",
+        "type": "function",
+        "z": "760776710adf462e",
+        "name": "create certificate",
+        "func": "const csr = forge.pki.certificationRequestFromPem(msg.payload.csr);\nif (!csr.verify()) {\n    msg.statusCode = 400;\n    return msg;\n}\n\nconst cert = forge.pki.createCertificate();\ncert.validity.notAfter.setMinutes(cert.validity.notBefore.getMinutes() + 1);\ncert.publicKey = csr.publicKey;\ncert.setSubject(csr.subject.attributes);\ncert.setIssuer(flow.certificate.subject.attributes);\ncert.setExtensions([{\n    name: 'subjectKeyIdentifier',\n    value: csr.getAttribute({name: 'subjectKeyIdentifier'})\n}]);\ncert.sign(flow.privkey);\n\nmsg.payload = {cert: forge.pki.certificateToPem(cert)};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\n\nflow.privkey = forge.pki.privateKeyFromPem(`\n-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAuk81SeDPnZ6+tNSY+AWUwq1NT9MJorRJdDMTM71AYLJHN0Kv\nbsUlKSdvo+b6AP0xvjzt8YduuljRg4XpnppJDCggKYy8tbQihr0LvhF0tNabf3Xq\nSRAiQ7srz8GgakahjvpS5uD1j3epKk22uhEb9Zt+NrzNh0M55ToFsZkafe0LZaIw\nA4Nv3o7UCAMBTO+BfmvpBccwO2m0x1GN+cRXnX9WqzqrETwdAVU7w+gRiS4xO8Ly\nf5EfFou2Vy5ECrK7YK3JXMaH0bVWMvRS8AqdbPI9uBkMt/hHpmppzwIiFhw5tw/O\nXMVM+yZhD4qem1kOPneo6RvlMoyJmF8Ow6ynHwIDAQABAoIBAA3a+yRh4X7K10rn\nw/KEqRIAmmR1K4fGmZnYfIqXU0ooUqSDmJFdJvd/CniUIlk1ezVhyZ5HNfm0xkFe\nPEgCbavyRfthDzMCJk6CkPTTI9dDsy+7oK9LUbOwypV6RF2doBaGe5OA/Qds3OSb\nqpr+z7yoZ4QBmYAAL2DikO7Vay4cdJvcPABCTraiCSBZcWYF5CFiY3PC999EnMES\n3fjBAYOLFuWpVpQzjQ+2OTiSXanemi8xHoTTxAuqLdftqcGT4rYE0v4ROfUfP+J5\nDu0SeBVoBVUs1C8+cSqznIsApeUYJ0OYUGnYtJ4f3RUxJBJ/5iUHIH1MBj40OhZO\n69xNcGECgYEA9xh/TZYu28Uvk1rLZeE+ItsXYbccHgkF9OwpH2YBsPYNk9PfcxcZ\n3xktM9JuXyOYxjJD6P0kCaHmhwq/zuBJE81wpJuCis8cXCeY59L9aDARynWuOaGH\n8OAtgo2xCwJURCfWr4ASmt5EwzMzaHdfIV5tlXcZot8Ek2t52r8tGb8CgYEAwQXy\nQxL6sQa2ZWpZR8aZXcP//10br++IzhAtCwSIlm4OEi9nHJ43XFlZ49EJUK/tmvxv\nvb6R+xdvl0aTFZ47haqRKEej6nfHkz2QzFt+BjmxiFIR80FxFDnU6GDiHAB+NBhs\nkZhq4vzk8yrzX4OwE2XKLYuzpxoNadEiDcIyCqECgYEA7GVAbY7v94u3z2b+ztJm\nKtymivKu8ME7NK23TfW+SnmsVbBOx4HjW4BvsXNx6o1YvM0cEUwVbS26KZoMFTSY\nVVynlqO8iWZJwJSVgbxmeYX7j1F0xGgYcUdX4t4B8gFhcu8WQkLqCcX5zTIvzZLe\nrUL03hjaqupoK02Yf8GEuWsCgYABjtu6wN93KFe2j9oyox6/zAI3/HdpvyQ6jZTf\nfuTfWfoRGYLaj0hhHXOFTD2oAhOH6bu5K12gSjsjXHV5ejJ+zLapPZLMJLVeseOG\nUsK8qCCPuiHc9c1E3YajbYzFrxdVslDGCBXsyR/L+q/GOJjmPy8XmQYVNjefgAmn\nVMb0oQKBgQCGRYv4jsv/HWhDNM/7eWDZRvLYJ3DF6nNju/ECWXDIaLswRJR+TROn\ngoyVLKveMFF+EkowB2H1J06Llbn8OJr8zJoaDkj/FMtyMXMLUm7GLAZjNZkCCOGd\n3u0UtX85iyN25Y/a8nz6HiakgUXCnbBtUQEFy4ZRaMfwd+Fy1gjgkg==\n-----END RSA PRIVATE KEY-----\n`);\n\nflow.certificate = forge.pki.certificateFromPem(`\n-----BEGIN CERTIFICATE-----\nMIIC4DCCAcigAwIBAgIAMA0GCSqGSIb3DQEBBQUAMDQxDDAKBgNVBAMTA2VJRDEX\nMBUGA1UEChMOVGVzdCBFdnJvdHJ1c3QxCzAJBgNVBAYTAkJHMB4XDTI1MDExMjEw\nMzMyMVoXDTI2MDExMjEwMzMyMVowNDEMMAoGA1UEAxMDZUlEMRcwFQYDVQQKEw5U\nZXN0IEV2cm90cnVzdDELMAkGA1UEBhMCQkcwggEiMA0GCSqGSIb3DQEBAQUAA4IB\nDwAwggEKAoIBAQC6TzVJ4M+dnr601Jj4BZTCrU1P0wmitEl0MxMzvUBgskc3Qq9u\nxSUpJ2+j5voA/TG+PO3xh266WNGDhememkkMKCApjLy1tCKGvQu+EXS01pt/depJ\nECJDuyvPwaBqRqGO+lLm4PWPd6kqTba6ERv1m342vM2HQznlOgWxmRp97QtlojAD\ng2/ejtQIAwFM74F+a+kFxzA7abTHUY35xFedf1arOqsRPB0BVTvD6BGJLjE7wvJ/\nkR8Wi7ZXLkQKsrtgrclcxofRtVYy9FLwCp1s8j24GQy3+EemamnPAiIWHDm3D85c\nxUz7JmEPip6bWQ4+d6jpG+UyjImYXw7DrKcfAgMBAAEwDQYJKoZIhvcNAQEFBQAD\nggEBAAo0SB0ljxtgzNg9AKyIv2IN0zbN9NA5s7UkNYUXjpazXd6WfK9ot9xy8XMP\nhWZf1XdMoSg7yHRwOjlNioYd4K7fik2Lzb21a6OADKjVtlRIbpDOqtGXFeAu7yjm\n8/hh6LMEy4d72Xcdl/XG7VlZGBi5P2jpglm7JbFCjYXSsRf0kBwIy++cU1mEzNT+\nD93Hjl8pezVoVSEGczq4tZEYF8gwJOewIQyt47y3cGnk1c4NRWHmtPpTcaEdX471\n/YKKoWsR1CT2DFkluZI/wIBrEWX/RkvxujfYfZfvyBA6ZB6V2mXN9gCfzmxuHUDU\nVXlAEVhn/C9F/oGshha1GIsuoR0=\n-----END CERTIFICATE-----\n`);",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "forge",
+                "module": "node-forge"
+            }
+        ],
+        "x": 480,
+        "y": 140,
+        "wires": [
+            [
+                "c2e80d88f9c9e899",
+                "ca3693da1328b52c"
+            ]
+        ]
+    },
+    {
+        "id": "c2e80d88f9c9e899",
+        "type": "debug",
+        "z": "760776710adf462e",
+        "name": "login response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "10dd8cd4c9a89042",
+        "type": "debug",
+        "z": "760776710adf462e",
+        "name": "login request",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 430,
+        "y": 200,
+        "wires": []
+    }
+]
